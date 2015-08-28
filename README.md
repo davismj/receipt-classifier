@@ -1,4 +1,4 @@
-# Taxi Receipt Classifier for MerryBiz
+# Receipt Classifier for MerryBiz
 This is an example of a receipt classifier using the Gaussian Naive Bayes supervised learning algorithm. The application uses Tesseract OCR to scan receipt images for text, and uses the occurrence each unicode character code as a parameter in gaussian naive bayes. 
 
 # Usage 
