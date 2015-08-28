@@ -1,0 +1,11 @@
+{
+	"chunk_size": 100,
+	"training_data": [
+		["./training/taxi/*.jpg", 1],
+		["./training/other/*.jpg", 0]
+	],
+	"test_data": [
+		["./test/taxi/*.jpg", 1],
+		["./test/other/*.jpg", 0]
+	]
+}
