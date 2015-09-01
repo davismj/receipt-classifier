@@ -1,11 +1,16 @@
 {
-	"chunk_size": 100,
+	"algorithm": "LinearSVC",
+	"penalty": 1,
+	"tolerance": 0.0001,
+	"min_n_gram": 1,
+	"max_n_gram": 1,
+	"token_pattern": "\\S",
 	"training_data": [
-		["./training/taxi/*.jpg", 1],
-		["./training/other/*.jpg", 0]
+		["./training/other/*.jpg", 0],
+		["./training/taxi/*.jpg", 1]
 	],
 	"test_data": [
-		["./test/taxi/*.jpg", 1],
-		["./test/other/*.jpg", 0]
+		["./test/other/*.jpg", 0],
+		["./test/taxi/*.jpg", 1]
 	]
 }

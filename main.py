@@ -4,7 +4,13 @@ import json
 import subprocess
 import glob
 import multiprocessing
+from DenseTransformer import DenseTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer 
 from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import LinearSVC 
+from sklearn.linear_model import SGDClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 config = json.load(open('./config.json'))
 
@@ -24,22 +30,9 @@ def get_text_from_image_path(image_path):
 	# return the image text
 	return open('{0}/{1}.txt'.format(output_path, image), encoding='utf-8').read()
 
-def get_vector_from_image_path(image_path):
-	'''Parse the image into a vector where the dimension is the ord(char) 
-	and the magnitude is the repeititon of the character in the text.'''
-	
-	# initialize the vector
-	vector = [0] * 46000
-
-	# for each character, increment the magnitude in that dimension by 1
-	for char in get_text_from_image_path(image_path):
-		vector[ord(char)] += 1 
-
-	return vector
-
-def generate_data_from_config(config):
-	'''Generates the x (data) and y (target) data to use in the GaussianNB
-	classifier from a data configuration of the form [image_glob, classification].'''
+def generate_data_from_config(data_config):
+	'''Generates the x (data) and y (target) data to use in the classifier 
+	from a data configuration of the form [image_glob, classification].'''
 	
 	# initialize arrays
 	data = []
@@ -50,7 +43,7 @@ def generate_data_from_config(config):
 	pool = multiprocessing.Pool(multiprocessing.cpu_count()-1)
 	
 	# for each classificatoin
-	for image_glob, classification in config:
+	for image_glob, classification in data_config:
 
 		# parse out the image paths
 		image_paths = glob.glob(image_glob)
@@ -58,7 +51,8 @@ def generate_data_from_config(config):
 		# map each image to a thread running get_vector_from_image_path,
 		# add the results to the data array, and add classification to the
 		# target array for each image in the image glob
-		data.extend(pool.map(get_vector_from_image_path, image_paths))
+		# data.extend(pool.map(get_vector_from_image_path, image_paths)) # DISABLED to use CountVectorizer
+		data.extend(pool.map(get_text_from_image_path, image_paths))
 		target.extend([classification] * len(image_paths))
 
 	return (data, target)
@@ -70,15 +64,39 @@ def create_classifier(training_data_config):
 	# generate the data from the config
 	data, target = generate_data_from_config(training_data_config)
 
-	# chunk_size is used to break apart the data into chunks to prevent overflow
-	chunk_size = config['chunk_size']
+	# build the vectorizer
+	vectorizer = CountVectorizer(
+		min_df=1, 
+		ngram_range=(config['min_n_gram'],config['max_n_gram']), 
+		token_pattern=config['token_pattern'])
 
-	# create GaussianNB and train chunk-by-chunk using partial_fit
-	classifier = GaussianNB()
-	for n in range(len(data) // chunk_size):
-		data_chunk = data[n*chunk_size:(n+1)*chunk_size]
-		target_chunk = target[n*chunk_size:(n+1)*chunk_size]
-		classifier.partial_fit(data_chunk, target_chunk, [0,1])
+	# build the pipeline for the selected algorithm
+	algorithm = config['algorithm']
+	if algorithm == 'LinearSVC':
+		classifier = Pipeline([
+			('vectorizer', vectorizer),
+			('classifier', LinearSVC(C=config['penalty'], tol=config['tolerance']))
+		])
+	elif algorithm == 'SGD':
+		classifier = Pipeline([
+			('vectorizer', vectorizer),
+			('classifier', SGDClassifier())
+		])
+	elif algorithm == 'RandomForest':
+		classifier = Pipeline([
+			('vectorizer', vectorizer),
+			('classifier', RandomForestClassifier())
+		])
+	elif algorithm == 'GaussianNB':
+		classifier = Pipeline([
+			('vectorizer', vectorizer),
+			('densifier', DenseTransformer()), 
+			('classifier', GaussianNB())
+		])
+	else:
+		sys.exit('Invalid algorithm selected: {0}'.format(algorithm))
+	
+	classifier.fit(data, target)
 
 	return classifier
 
@@ -91,20 +109,23 @@ def test_classifier(classifier, test_data_config):
 
 	# score and return
 	return classifier.score(data, target)
+	# classifier.predict(data)
 
 def classify_receipts(classifier, image_glob):
 	'''Uses a classifier to classify an glob of images and returns the results.'''
 	
+	## TODO: Multithreading, might be low ROI, especially if the typical use case is small
+
 	results = []
 
 	# for each image in the glob
 	for image_path in glob.glob(image_glob):
 
 		# read the image
-		vector = get_vector_from_image_path(image_path)
+		image_text = get_text_from_image_path(image_path)
 
 		# use predict to classify, and add to results
-		results += [(image_path, classifier.predict([vector])[0])]
+		results += [(image_path, classifier.predict([image_text])[0])]
 
 	return results
 
@@ -117,7 +138,7 @@ if __name__ == '__main__':
 	if len(sys.argv) == 2:
 		image_glob = sys.argv[1]
 		for image_path, result in classify_receipts(classifier, image_glob):
-			print('Classification result: {0}'.format(result))
+			print('{0}: {1}'.format(image_path, result))
 
 	# otherwise, run on the test set and output accuracy
 	else:
