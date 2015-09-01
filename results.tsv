@@ -1,5 +1,5 @@
 Algorithm	Taxi Accuracy	Other Accuracy	Total Accuracy
 LinearSVC n=1,1	95.74%	100.00%	99.45%
 LinearSVC n=1,2	95.74%	100.00%	99.45%
-LinearSVC n=2,2 91.49%  100.00% 98.90%
+LinearSVC n=2,	91.49%	100.00	98.90%
 LinearSVC n=3,3 85.11%	100.00%	98.07%
